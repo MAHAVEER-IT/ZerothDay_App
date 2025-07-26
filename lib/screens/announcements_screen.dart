@@ -207,18 +207,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     _applyFilters();
   }
 
-  String _selectedCategoryFilter = "All";
   String _selectedDateFilter = "All";
-
-  final List<String> categoryFilters = [
-    "All",
-    "Event",
-    "Placement",
-    "Maintenance",
-    "Sports",
-    "Academic",
-    "Workshop",
-  ];
 
   final List<String> dateFilters = [
     "All",
@@ -231,13 +220,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   List<Announcement> get filteredAnnouncements {
     List<Announcement> result = List.from(announcements);
-
-    // Apply category filter
-    if (_selectedCategoryFilter != "All") {
-      result = result
-          .where((a) => a.category == _selectedCategoryFilter)
-          .toList();
-    }
 
     // Apply date filter
     final now = DateTime.now();
@@ -302,14 +284,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
     Stream<List<Announcement>> announcementStream;
 
-    // Check if we need to apply category filter
-    if (_selectedCategoryFilter != "All") {
-      announcementStream = _firestoreService.getAnnouncementsByCategory(
-        _selectedCategoryFilter,
-      );
-    } else {
-      announcementStream = _firestoreService.getAnnouncements();
-    }
+    // Get all announcements
+    announcementStream = _firestoreService.getAnnouncements();
 
     // For date filters, we'll still need to filter in memory as Firestore can't handle
     // all the complex date filtering we need
@@ -333,70 +309,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filter dropdowns
+        // Filter dropdown
         Container(
           padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              // Category dropdown
-              Expanded(
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.0),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFAFDFFF).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8.0),
-                    border: Border.all(color: Color(0xFF5CACEE), width: 1.0),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedCategoryFilter,
-                      icon: Icon(
-                        Icons.arrow_drop_down,
-                        color: Color(0xFF5CACEE),
-                      ),
-                      isExpanded: true,
-                      hint: Text("Category"),
-                      elevation: 2,
-                      style: TextStyle(color: Colors.black87, fontSize: 14),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedCategoryFilter = newValue;
-                            _applyFilters();
-                          });
-                        }
-                      },
-                      items: categoryFilters.map<DropdownMenuItem<String>>((
-                        String value,
-                      ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Row(
-                            children: [
-                              if (value != "All")
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  margin: EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: value != "All"
-                                        ? _getCategoryColor(value)
-                                        : Colors.transparent,
-                                  ),
-                                ),
-                              Text(value),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(width: 12),
-
               // Date dropdown
               Expanded(
                 child: Container(
@@ -498,12 +415,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               : filteredAnnouncements.isEmpty
               ? Center(
                   child: Text(
-                    _selectedCategoryFilter != "All" &&
-                            _selectedDateFilter != "All"
-                        ? 'No announcements found for $_selectedCategoryFilter category in $_selectedDateFilter'
-                        : _selectedCategoryFilter != "All"
-                        ? 'No announcements found for $_selectedCategoryFilter category'
-                        : _selectedDateFilter != "All"
+                    _selectedDateFilter != "All"
                         ? 'No announcements found for $_selectedDateFilter'
                         : 'No announcements found',
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
@@ -554,9 +466,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                         fontSize: 12,
                                       ),
                                     ),
-                                    backgroundColor: _getCategoryColor(
-                                      announcement.category,
-                                    ),
+                                    backgroundColor: Colors.blueGrey,
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
                                     padding: EdgeInsets.zero,
@@ -634,24 +544,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     );
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'Event':
-        return Colors.purple;
-      case 'Placement':
-        return Colors.green;
-      case 'Maintenance':
-        return Colors.orange;
-      case 'Sports':
-        return Colors.red;
-      case 'Academic':
-        return Color(0xFF5CACEE);
-      case 'Workshop':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
-  }
+  // Category color method removed as requested
 
   String _formatDate(DateTime timestamp) {
     final now = DateTime.now();
