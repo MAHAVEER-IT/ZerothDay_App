@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "154932821376",
+    "project_id": "zerothday",
+    "storage_bucket": "zerothday.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:154932821376:android:02e81bad9f077b20955565",
+        "android_client_info": {
+          "package_name": "com.example.zerothday"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "154932821376-6g4la7um8ku0qcs77tmnbqtddt3plk3j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCG3F22N50hkJSsEYABH3xHJgR1Qbc8WME"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "154932821376-6g4la7um8ku0qcs77tmnbqtddt3plk3j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
