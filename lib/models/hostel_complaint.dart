@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class HostelComplaint {
   final String id;
   final String studentId;
@@ -13,7 +15,7 @@ class HostelComplaint {
   final DateTime updatedAt;
   final DateTime? resolvedAt;
   final String? adminComment;
-  final List<String> images; // URLs to images
+  final List<String> images;
 
   HostelComplaint({
     required this.id,
@@ -33,47 +35,56 @@ class HostelComplaint {
     required this.images,
   });
 
-  // Create a copy of the complaint with some fields updated
-  HostelComplaint copyWith({
-    String? id,
-    String? studentId,
-    String? studentName,
-    String? studentEmail,
-    String? category,
-    String? issue,
-    String? description,
-    String? location,
-    String? priority,
-    String? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    DateTime? resolvedAt,
-    String? adminComment,
-    List<String>? images,
-  }) {
+  // Create from Firestore document
+  factory HostelComplaint.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    // Handle timestamps
+    final createdAt = data['createdAt'] is Timestamp
+        ? (data['createdAt'] as Timestamp).toDate()
+        : DateTime.now();
+
+    final updatedAt = data['updatedAt'] is Timestamp
+        ? (data['updatedAt'] as Timestamp).toDate()
+        : createdAt;
+
+    DateTime? resolvedAt;
+    if (data['resolvedAt'] != null && data['resolvedAt'] is Timestamp) {
+      resolvedAt = (data['resolvedAt'] as Timestamp).toDate();
+    }
+
+    // Handle images array
+    List<String> images = [];
+    if (data['images'] != null) {
+      try {
+        images = List<String>.from(data['images']);
+      } catch (e) {
+        print("Error parsing images: $e");
+      }
+    }
+
     return HostelComplaint(
-      id: id ?? this.id,
-      studentId: studentId ?? this.studentId,
-      studentName: studentName ?? this.studentName,
-      studentEmail: studentEmail ?? this.studentEmail,
-      category: category ?? this.category,
-      issue: issue ?? this.issue,
-      description: description ?? this.description,
-      location: location ?? this.location,
-      priority: priority ?? this.priority,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      resolvedAt: resolvedAt ?? this.resolvedAt,
-      adminComment: adminComment ?? this.adminComment,
-      images: images ?? this.images,
+      id: doc.id,
+      studentId: data['studentId'] ?? '',
+      studentName: data['studentName'] ?? '',
+      studentEmail: data['studentEmail'] ?? '',
+      category: data['category'] ?? '',
+      issue: data['issue'] ?? '',
+      description: data['description'] ?? '',
+      location: data['location'] ?? '',
+      priority: data['priority'] ?? 'Medium',
+      status: data['status'] ?? 'pending',
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      resolvedAt: resolvedAt,
+      adminComment: data['adminComment'],
+      images: images,
     );
   }
 
-  // Convert complaint to a map
-  Map<String, dynamic> toMap() {
+  // Convert to Firestore document
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
       'studentId': studentId,
       'studentName': studentName,
       'studentEmail': studentEmail,
@@ -83,34 +94,11 @@ class HostelComplaint {
       'location': location,
       'priority': priority,
       'status': status,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'resolvedAt': resolvedAt?.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'resolvedAt': resolvedAt != null ? Timestamp.fromDate(resolvedAt!) : null,
       'adminComment': adminComment,
       'images': images,
     };
-  }
-
-  // Create a complaint from a map
-  factory HostelComplaint.fromMap(Map<String, dynamic> map) {
-    return HostelComplaint(
-      id: map['id'],
-      studentId: map['studentId'],
-      studentName: map['studentName'],
-      studentEmail: map['studentEmail'],
-      category: map['category'],
-      issue: map['issue'],
-      description: map['description'],
-      location: map['location'],
-      priority: map['priority'],
-      status: map['status'],
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
-      resolvedAt: map['resolvedAt'] != null
-          ? DateTime.parse(map['resolvedAt'])
-          : null,
-      adminComment: map['adminComment'],
-      images: List<String>.from(map['images']),
-    );
   }
 }

@@ -1,10 +1,29 @@
-class TimetableEntry {
+import 'package:hive/hive.dart';
+
+// This file will be generated automatically by build_runner
+part 'timetable_entry.g.dart';
+
+@HiveType(typeId: 0)
+class TimetableEntry extends HiveObject {
+  @HiveField(0)
   final String id; // Unique identifier for each entry
+
+  @HiveField(1)
   final String subject;
+
+  @HiveField(2)
   final String room;
+
+  @HiveField(3)
   final String faculty;
+
+  @HiveField(4)
   final int dayOfWeek; // 0 for Monday, 1 for Tuesday, etc.
+
+  @HiveField(5)
   final TimeSlot timeSlot;
+
+  @HiveField(6)
   final String color; // Hex color code for the subject
 
   TimetableEntry({
@@ -52,10 +71,18 @@ class TimetableEntry {
   }
 }
 
+@HiveType(typeId: 1)
 class TimeSlot {
+  @HiveField(0)
   final int startHour;
+
+  @HiveField(1)
   final int startMinute;
+
+  @HiveField(2)
   final int endHour;
+
+  @HiveField(3)
   final int endMinute;
 
   TimeSlot({

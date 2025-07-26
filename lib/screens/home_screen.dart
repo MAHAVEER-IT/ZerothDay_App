@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../auth/student_provider.dart';
 import '../auth/student_model.dart';
+import '../auth/student_provider.dart';
 import 'announcements_screen.dart';
-import 'lost_found_screen.dart';
-import 'timetable_scheduler_screen.dart';
 import 'hostel_complaint_screen.dart';
+import 'lost_found_screen_new.dart';
+import 'timetable_scheduler_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override

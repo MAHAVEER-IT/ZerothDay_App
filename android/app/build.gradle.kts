@@ -11,7 +11,7 @@ plugins {
 android {
     namespace = "com.example.zerothday"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // Updated NDK version for plugin compatibility
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

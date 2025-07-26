@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/timetable_entry.dart';
+import '../services/timetable_service.dart';
 
 class TimetableSchedulerScreen extends StatefulWidget {
   @override
@@ -21,6 +23,9 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
 
   // Store timetable entries
   List<TimetableEntry> timetableEntries = [];
+
+  // Timetable service for database operations
+  final TimetableService _timetableService = TimetableService();
 
   // Current selected day for mobile view
   int _selectedDayIndex = 0;
@@ -119,8 +124,42 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
   @override
   void initState() {
     super.initState();
-    // Load the mock data
-    timetableEntries = List.from(mockEntries);
+    // Load data from Hive database
+    _loadTimetableEntries();
+  }
+
+  // Load entries from database
+  Future<void> _loadTimetableEntries() async {
+    try {
+      final entries = await _timetableService.getAllEntries();
+
+      setState(() {
+        if (entries.isEmpty) {
+          // If no data in database, use mock data
+          timetableEntries = List.from(mockEntries);
+          // Save mock data to database for future use
+          _saveMockDataToDatabase();
+        } else {
+          timetableEntries = entries;
+        }
+      });
+    } catch (e) {
+      print('Error loading timetable entries: $e');
+      // Fallback to mock data if database fails
+      setState(() {
+        timetableEntries = List.from(mockEntries);
+      });
+    }
+  }
+
+  // Save mock data to database
+  Future<void> _saveMockDataToDatabase() async {
+    try {
+      await _timetableService.addEntries(mockEntries);
+      print('Mock data saved to database');
+    } catch (e) {
+      print('Error saving mock data: $e');
+    }
   }
 
   // Function to get entries for a specific day
@@ -466,14 +505,67 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
                 ),
                 if (isEditing)
                   TextButton(
-                    onPressed: () {
-                      _deleteEntry(entry.id);
-                      Navigator.pop(context);
+                    onPressed: () async {
+                      // Show confirmation dialog
+                      final shouldDelete =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text('Delete Class'),
+                              content: Text(
+                                'Are you sure you want to delete this class?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+
+                      if (!shouldDelete) return;
+
+                      // Show loading indicator
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (ctx) =>
+                            Center(child: CircularProgressIndicator()),
+                      );
+
+                      try {
+                        await _deleteEntry(entry.id);
+                        // Close loading indicator
+                        Navigator.pop(context);
+                        // Close dialog
+                        Navigator.pop(context);
+                      } catch (e) {
+                        // Close loading indicator
+                        Navigator.pop(context);
+                        // Show error
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Error deleting class: ${e.toString()}',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     },
                     child: Text('Delete', style: TextStyle(color: Colors.red)),
                   ),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final subject = subjectController.text.trim();
                     final room = roomController.text.trim();
                     final faculty = facultyController.text.trim();
@@ -504,30 +596,140 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
                       endMinute: endMinute,
                     );
 
-                    if (isEditing) {
-                      // Update existing entry
-                      _updateEntry(
-                        entry.id,
-                        subject,
-                        room,
-                        faculty,
-                        selectedDay,
-                        timeSlot,
-                        selectedColor,
+                    // Show loading indicator
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) =>
+                          Center(child: CircularProgressIndicator()),
+                    );
+
+                    try {
+                      // Create entry object to check for conflicts
+                      final tempEntry = TimetableEntry(
+                        id: isEditing ? entry.id : _uuid.v4(),
+                        subject: subject,
+                        room: room,
+                        faculty: faculty,
+                        dayOfWeek: selectedDay,
+                        timeSlot: timeSlot,
+                        color: selectedColor,
                       );
-                    } else {
-                      // Add new entry
-                      _addEntry(
-                        subject,
-                        room,
-                        faculty,
-                        selectedDay,
-                        timeSlot,
-                        selectedColor,
+
+                      // Check for scheduling conflicts
+                      final conflicts = await _timetableService
+                          .findConflictingEntries(
+                            tempEntry,
+                            excludeId: isEditing ? entry.id : null,
+                          );
+
+                      // If conflicts exist, show warning
+                      if (conflicts.isNotEmpty) {
+                        // Close loading indicator
+                        Navigator.pop(context);
+
+                        // Show conflict warning
+                        bool proceedAnyway =
+                            await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text('Time Conflict Detected'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('This class overlaps with:'),
+                                    SizedBox(height: 8),
+                                    ...conflicts.map(
+                                      (conflict) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 4,
+                                        ),
+                                        child: Text(
+                                          '• ${conflict.subject} (${conflict.timeSlot.timeRangeFormatted})',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text('Do you want to proceed anyway?'),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: Text('Proceed Anyway'),
+                                  ),
+                                ],
+                              ),
+                            ) ??
+                            false;
+
+                        if (!proceedAnyway) {
+                          // Show loading again to continue with the same dialog
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx) =>
+                                Center(child: CircularProgressIndicator()),
+                          );
+                          Navigator.pop(context); // Close loading
+                          return; // Keep dialog open
+                        }
+
+                        // Show loading again if proceeding
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (ctx) =>
+                              Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      if (isEditing) {
+                        // Update existing entry
+                        await _updateEntry(
+                          entry.id,
+                          subject,
+                          room,
+                          faculty,
+                          selectedDay,
+                          timeSlot,
+                          selectedColor,
+                        );
+                      } else {
+                        // Add new entry
+                        await _addEntry(
+                          subject,
+                          room,
+                          faculty,
+                          selectedDay,
+                          timeSlot,
+                          selectedColor,
+                        );
+                      }
+
+                      // Close loading indicator
+                      Navigator.pop(context);
+                      // Close dialog
+                      Navigator.pop(context);
+                    } catch (e) {
+                      // Close loading indicator
+                      Navigator.pop(context);
+                      // Show error
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
-
-                    Navigator.pop(context);
                   },
                   child: Text(isEditing ? 'Update' : 'Add'),
                 ),
@@ -540,14 +742,14 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
   }
 
   // Add a new timetable entry
-  void _addEntry(
+  Future<void> _addEntry(
     String subject,
     String room,
     String faculty,
     int dayOfWeek,
     TimeSlot timeSlot,
     String color,
-  ) {
+  ) async {
     final newEntry = TimetableEntry(
       id: _uuid.v4(),
       subject: subject,
@@ -558,21 +760,35 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
       color: color,
     );
 
-    setState(() {
-      timetableEntries.add(newEntry);
-    });
+    try {
+      // Add to database
+      await _timetableService.addEntry(newEntry);
 
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Class added to schedule'),
-        backgroundColor: Color(0xFF5CACEE),
-      ),
-    );
+      // Update state
+      setState(() {
+        timetableEntries.add(newEntry);
+      });
+
+      // Show confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Class added to schedule'),
+          backgroundColor: Color(0xFF5CACEE),
+        ),
+      );
+    } catch (e) {
+      print('Error adding entry: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add class: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Update an existing timetable entry
-  void _updateEntry(
+  Future<void> _updateEntry(
     String id,
     String subject,
     String room,
@@ -580,22 +796,28 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
     int dayOfWeek,
     TimeSlot timeSlot,
     String color,
-  ) {
-    final index = timetableEntries.indexWhere((entry) => entry.id == id);
-    if (index != -1) {
-      final updatedEntry = TimetableEntry(
-        id: id,
-        subject: subject,
-        room: room,
-        faculty: faculty,
-        dayOfWeek: dayOfWeek,
-        timeSlot: timeSlot,
-        color: color,
-      );
+  ) async {
+    final updatedEntry = TimetableEntry(
+      id: id,
+      subject: subject,
+      room: room,
+      faculty: faculty,
+      dayOfWeek: dayOfWeek,
+      timeSlot: timeSlot,
+      color: color,
+    );
 
-      setState(() {
-        timetableEntries[index] = updatedEntry;
-      });
+    try {
+      // Update in database
+      await _timetableService.updateEntry(updatedEntry);
+
+      // Update in state
+      final index = timetableEntries.indexWhere((entry) => entry.id == id);
+      if (index != -1) {
+        setState(() {
+          timetableEntries[index] = updatedEntry;
+        });
+      }
 
       // Show confirmation
       ScaffoldMessenger.of(context).showSnackBar(
@@ -604,22 +826,44 @@ class _TimetableSchedulerScreenState extends State<TimetableSchedulerScreen> {
           backgroundColor: Color(0xFF5CACEE),
         ),
       );
+    } catch (e) {
+      print('Error updating entry: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update class: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   // Delete a timetable entry
-  void _deleteEntry(String id) {
-    setState(() {
-      timetableEntries.removeWhere((entry) => entry.id == id);
-    });
+  Future<void> _deleteEntry(String id) async {
+    try {
+      // Delete from database
+      await _timetableService.deleteEntry(id);
 
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Class removed from schedule'),
-        backgroundColor: Color(0xFF5CACEE),
-      ),
-    );
+      // Update state
+      setState(() {
+        timetableEntries.removeWhere((entry) => entry.id == id);
+      });
+
+      // Show confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Class removed from schedule'),
+          backgroundColor: Color(0xFF5CACEE),
+        ),
+      );
+    } catch (e) {
+      print('Error deleting entry: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to remove class: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

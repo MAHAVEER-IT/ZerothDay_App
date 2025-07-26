@@ -1,29 +1,14 @@
 import 'package:flutter/material.dart';
-
-class Announcement {
-  final String title;
-  final String content;
-  final String updatedBy;
-  final DateTime timestamp;
-  final List<String> doc; // Array of image URLs
-  final String category;
-
-  Announcement({
-    required this.title,
-    required this.content,
-    required this.updatedBy,
-    required this.timestamp,
-    required this.doc,
-    required this.category,
-  });
-}
+import '../models/announcement.dart';
+import '../services/firestore_service.dart';
 
 // Image carousel widget for displaying multiple images
 class ImageCarousel extends StatefulWidget {
   final List<String> images;
   final String? category;
 
-  const ImageCarousel({Key? key, required this.images, this.category}) : super(key: key);
+  const ImageCarousel({Key? key, required this.images, this.category})
+    : super(key: key);
 
   @override
   _ImageCarouselState createState() => _ImageCarouselState();
@@ -31,7 +16,7 @@ class ImageCarousel extends StatefulWidget {
 
 class _ImageCarouselState extends State<ImageCarousel> {
   int _currentIndex = 0;
-  
+
   // Helper method to get appropriate icon for each category
   IconData _getIconForCategory(String category) {
     switch (category) {
@@ -73,7 +58,7 @@ class _ImageCarouselState extends State<ImageCarousel> {
                   child: CircularProgressIndicator(
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
+                              loadingProgress.expectedTotalBytes!
                         : null,
                     color: Color(0xFF5CACEE),
                   ),
@@ -82,28 +67,24 @@ class _ImageCarouselState extends State<ImageCarousel> {
             },
             errorBuilder: (context, error, stackTrace) {
               IconData iconData = Icons.broken_image;
-              
+
               // Use the _getCategoryIcon method from the parent class if category is provided
               if (widget.category != null) {
                 iconData = _getIconForCategory(widget.category!);
               }
-              
+
               return Container(
                 height: 180,
                 width: double.infinity,
                 color: Color(0xFFAFDFFF).withOpacity(0.5),
                 child: Center(
-                  child: Icon(
-                    iconData,
-                    size: 60,
-                    color: Color(0xFF5CACEE),
-                  ),
+                  child: Icon(iconData, size: 60, color: Color(0xFF5CACEE)),
                 ),
               );
             },
           ),
         ),
-        
+
         // Navigation buttons - only show if more than one image
         if (widget.images.length > 1)
           Positioned.fill(
@@ -115,7 +96,8 @@ class _ImageCarouselState extends State<ImageCarousel> {
                   GestureDetector(
                     onTap: () {
                       setState(() {
-                        _currentIndex = (_currentIndex - 1) % widget.images.length;
+                        _currentIndex =
+                            (_currentIndex - 1) % widget.images.length;
                       });
                     },
                     child: Container(
@@ -133,13 +115,14 @@ class _ImageCarouselState extends State<ImageCarousel> {
                       ),
                     ),
                   ),
-                
+
                 // Right arrow
                 if (_currentIndex < widget.images.length - 1)
                   GestureDetector(
                     onTap: () {
                       setState(() {
-                        _currentIndex = (_currentIndex + 1) % widget.images.length;
+                        _currentIndex =
+                            (_currentIndex + 1) % widget.images.length;
                       });
                     },
                     child: Container(
@@ -160,7 +143,7 @@ class _ImageCarouselState extends State<ImageCarousel> {
               ],
             ),
           ),
-          
+
         // Image counter indicator
         if (widget.images.length > 1)
           Positioned(
@@ -185,7 +168,7 @@ class _ImageCarouselState extends State<ImageCarousel> {
               ),
             ),
           ),
-          
+
         // Gradient overlay at bottom
         Positioned(
           bottom: 0,
@@ -197,10 +180,7 @@ class _ImageCarouselState extends State<ImageCarousel> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.7),
-                ],
+                colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
               ),
             ),
           ),
@@ -216,102 +196,16 @@ class AnnouncementsScreen extends StatefulWidget {
 }
 
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
-final List<Announcement> announcements = [
-  Announcement(
-    title: "College Annual Day Celebration",
-    content:
-        "Annual Day celebrations will be held on August 15, 2025 in the college auditorium. All students are requested to attend. Cultural performances will begin at 10:00 AM.",
-    updatedBy: "Principal's Office",
-    timestamp: DateTime(2025, 7, 20),
-    doc: [
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1000&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?q=80&w=1000&auto=format&fit=crop",
-    ],
-    category: "Event",
-  ),
-  Announcement(
-    title: "Placement Drive: TCS",
-    content:
-        "TCS will be conducting a placement drive for 2026 batch students on July 30, 2025. Interested students should register before July 28. Eligibility: 7.5 CGPA and above with no current backlogs.",
-    updatedBy: "Placement Cell",
-    timestamp: DateTime(2025, 7, 22),
-    doc: [
-      "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-      "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    ],
-    category: "Placement",
-  ),
-  Announcement(
-    title: "Wi-Fi Maintenance Notice",
-    content:
-        "The campus Wi-Fi will be under maintenance on Saturday, July 26, 2025 from 10:00 PM to 6:00 AM. Internet services may be interrupted during this period.",
-    updatedBy: "IT Department",
-    timestamp: DateTime(2025, 7, 23),
-    doc: [
-      "https://images.unsplash.com/photo-1595623238469-fc58e467b108?q=80&w=1000&auto=format&fit=crop",
-    ],
-    category: "Maintenance",
-  ),
-  Announcement(
-    title: "Inter-Department Cricket Tournament",
-    content:
-        "Registration for the inter-department cricket tournament is now open. Last date to register your team is July 31, 2025. The tournament will begin on August 5, 2025.",
-    updatedBy: "Sports Committee",
-    timestamp: DateTime(2025, 7, 15),
-    doc: [
-      "https://images.pexels.com/photos/3628912/pexels-photo-3628912.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-      "https://media.istockphoto.com/id/1365422587/photo/sportsman-playing-cricket-on-stadium.jpg?s=612x612&w=0&k=20&c=jZ7nI9JTiYX3RdjjHVP7Gz-7BrTNcwV9JTp6YrqWViY=",
-    ],
-    category: "Sports",
-  ),
-  Announcement(
-    title: "Library Extended Hours",
-    content:
-        "The college library will remain open until 10:00 PM during the exam period (August 1-15, 2025). Students can utilize this opportunity for exam preparation.",
-    updatedBy: "Library Department",
-    timestamp: DateTime(2025, 7, 24),
-    doc: [
-      "https://images.unsplash.com/photo-1516321315098-4177b9b4e697?q=80&w=1000&auto=format&fit=crop",
-      "https://media.gettyimages.com/id/640306266/photo/library-interior-view-with-bookshelves-looking-into-space.jpg?s=612x612&w=gi&k=20&c=SYIYOtx5X93rGjPy24n45cZxPcnl3mJz66Ph3Lze-aY=",
-    ],
-    category: "Academic",
-  ),
-  Announcement(
-    title: "Workshop on AI and Machine Learning",
-    content:
-        "A two-day workshop on AI and Machine Learning will be conducted on August 2-3, 2025. Guest speakers from Google and Microsoft will be presenting. Registration is mandatory.",
-    updatedBy: "CSE Department",
-    timestamp: DateTime(2025, 7, 10),
-    doc: [
-      "https://images.unsplash.com/photo-1516321315098-4177b9b4e697?q=80&w=1000&auto=format&fit=crop",
-      "https://st4.depositphotos.com/13193658/37851/i/450/depositphotos_378510890-stock-photo-artificial-intelligence-concept-circuit-board.jpg",
-    ],
-    category: "Workshop",
-  ),
-  Announcement(
-    title: "Campus Cleanup Drive",
-    content:
-        "Join us for the monthly campus cleanup drive on July 27, 2025 from 9:00 AM to 12:00 PM. All students are encouraged to participate. NSS volunteers will receive certificates.",
-    updatedBy: "NSS Coordinator",
-    timestamp: DateTime(2025, 7, 5),
-    doc: [
-      "https://images.pexels.com/photos/7672101/pexels-photo-7672101.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    ],
-    category: "Event",
-  ),
-  Announcement(
-    title: "Microsoft Campus Interview",
-    content:
-        "Microsoft will be conducting campus interviews for final year B.Tech and M.Tech students on August 7, 2025. Interested students must complete the online assessment by July 29.",
-    updatedBy: "Placement Cell",
-    timestamp: DateTime(2025, 7, 18),
-    doc: [
-      "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-      "https://st2.depositphotos.com/3591429/5245/i/450/depositphotos_52454445-stock-photo-people-having-business-interview.jpg",
-    ],
-    category: "Placement",
-  ),
-];
+  final FirestoreService _firestoreService = FirestoreService();
+  List<Announcement> announcements = [];
+  bool _isLoading = true;
+  String _errorMessage = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _applyFilters();
+  }
 
   String _selectedCategoryFilter = "All";
   String _selectedDateFilter = "All";
@@ -399,6 +293,42 @@ final List<Announcement> announcements = [
     return result;
   }
 
+  // Method to apply filters directly with Firestore queries
+  void _applyFilters() {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = "";
+    });
+
+    Stream<List<Announcement>> announcementStream;
+
+    // Check if we need to apply category filter
+    if (_selectedCategoryFilter != "All") {
+      announcementStream = _firestoreService.getAnnouncementsByCategory(
+        _selectedCategoryFilter,
+      );
+    } else {
+      announcementStream = _firestoreService.getAnnouncements();
+    }
+
+    // For date filters, we'll still need to filter in memory as Firestore can't handle
+    // all the complex date filtering we need
+    announcementStream.listen(
+      (fetchedAnnouncements) {
+        setState(() {
+          announcements = fetchedAnnouncements;
+          _isLoading = false;
+        });
+      },
+      onError: (error) {
+        setState(() {
+          _errorMessage = "Failed to load announcements: $error";
+          _isLoading = false;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -432,6 +362,7 @@ final List<Announcement> announcements = [
                         if (newValue != null) {
                           setState(() {
                             _selectedCategoryFilter = newValue;
+                            _applyFilters();
                           });
                         }
                       },
@@ -490,6 +421,7 @@ final List<Announcement> announcements = [
                         if (newValue != null) {
                           setState(() {
                             _selectedDateFilter = newValue;
+                            _applyFilters();
                           });
                         }
                       },
@@ -535,7 +467,35 @@ final List<Announcement> announcements = [
 
         // Announcements list
         Expanded(
-          child: filteredAnnouncements.isEmpty
+          child: _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(color: Color(0xFF5CACEE)),
+                )
+              : _errorMessage.isNotEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      SizedBox(height: 16),
+                      Text(
+                        _errorMessage,
+                        style: TextStyle(fontSize: 16, color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _applyFilters,
+                        child: Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF5CACEE),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : filteredAnnouncements.isEmpty
               ? Center(
                   child: Text(
                     _selectedCategoryFilter != "All" &&
@@ -549,117 +509,125 @@ final List<Announcement> announcements = [
                     style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                   ),
                 )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: filteredAnnouncements.length,
-                  itemBuilder: (context, index) {
-                    final announcement = filteredAnnouncements[index];
-                    return Card(
-                      elevation: 2,
-                      margin: EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Image if available
-                          if (announcement.doc.isNotEmpty)
-                            ClipRRect(
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                              child: ImageCarousel(
-                                images: announcement.doc,
-                                category: announcement.category,
-                              ),
-                            ), // Content
-                          Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Category chip
-                                Chip(
-                                  label: Text(
-                                    announcement.category,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  backgroundColor: _getCategoryColor(
-                                    announcement.category,
-                                  ),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  padding: EdgeInsets.zero,
-                                ),
-                                SizedBox(height: 8),
-
-                                // Title
-                                Text(
-                                  announcement.title,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-
-                                // Content
-                                Text(
-                                  announcement.content,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
-                                SizedBox(height: 16),
-
-                                // Footer with author and date
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      announcement.updatedBy,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 13,
-                                        color: Colors.grey.shade800,
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getDateColor(
-                                          announcement.timestamp,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        _formatDate(announcement.timestamp),
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    _applyFilters();
                   },
+                  color: Color(0xFF5CACEE),
+                  child: ListView.builder(
+                    padding: EdgeInsets.all(16),
+                    itemCount: filteredAnnouncements.length,
+                    itemBuilder: (context, index) {
+                      final announcement = filteredAnnouncements[index];
+                      return Card(
+                        elevation: 2,
+                        margin: EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Image if available
+                            if (announcement.doc.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                                child: ImageCarousel(
+                                  images: announcement.doc,
+                                  category: announcement.category,
+                                ),
+                              ), // Content
+                            Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Category chip
+                                  Chip(
+                                    label: Text(
+                                      announcement.category,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    backgroundColor: _getCategoryColor(
+                                      announcement.category,
+                                    ),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  SizedBox(height: 8),
+
+                                  // Title
+                                  Text(
+                                    announcement.title,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+
+                                  // Content
+                                  Text(
+                                    announcement.content,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  SizedBox(height: 16),
+
+                                  // Footer with author and date
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        announcement.updatedBy,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getDateColor(
+                                            announcement.timestamp,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _formatDate(announcement.timestamp),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],

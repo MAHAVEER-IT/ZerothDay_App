@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 
 import '../auth/student_provider.dart';
 import '../models/hostel_complaint.dart';
+import '../services/complaint_service.dart';
 
 class HostelComplaintScreen extends StatefulWidget {
   @override
@@ -14,18 +15,12 @@ class HostelComplaintScreen extends StatefulWidget {
 class _HostelComplaintScreenState extends State<HostelComplaintScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _uuid = Uuid();
+  final ComplaintService _complaintService = ComplaintService();
 
-  // List to store complaints
-  List<HostelComplaint> _complaints = [];
-
-  // Filtered complaints by status
-  List<HostelComplaint> get _pendingComplaints =>
-      _complaints.where((c) => c.status == 'pending').toList();
-  List<HostelComplaint> get _inProgressComplaints =>
-      _complaints.where((c) => c.status == 'in-progress').toList();
-  List<HostelComplaint> get _resolvedComplaints =>
-      _complaints.where((c) => c.status == 'resolved').toList();
+  // Streams for different complaint statuses
+  late Stream<List<HostelComplaint>> _pendingComplaintsStream;
+  late Stream<List<HostelComplaint>> _inProgressComplaintsStream;
+  late Stream<List<HostelComplaint>> _resolvedComplaintsStream;
 
   // Category options
   final List<String> _categories = [
@@ -57,108 +52,32 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
     'Room',
   ];
 
-  // Mock complaint data
-  final List<HostelComplaint> _mockComplaints = [
-    HostelComplaint(
-      id: '1',
-      studentId: 'student123',
-      studentName: 'Arun Kumar',
-      studentEmail: 'arun@student.sece.ac.in',
-      category: 'Water',
-      issue: 'No water supply',
-      description:
-          'There has been no water supply in A Block since yesterday morning. Please resolve urgently.',
-      location: 'A Block - First Floor',
-      priority: 'High',
-      status: 'in-progress',
-      createdAt: DateTime.now().subtract(Duration(days: 2)),
-      updatedAt: DateTime.now().subtract(Duration(days: 1)),
-      adminComment:
-          'Maintenance team has been notified. Will be fixed by tomorrow.',
-      images: ['https://example.com/image1.jpg'],
-    ),
-    HostelComplaint(
-      id: '2',
-      studentId: 'student456',
-      studentName: 'Priya Singh',
-      studentEmail: 'priya@student.sece.ac.in',
-      category: 'Electricity',
-      issue: 'Power fluctuation',
-      description:
-          'There is continuous power fluctuation in my room which is damaging my laptop charger.',
-      location: 'B Block - Second Floor',
-      priority: 'Medium',
-      status: 'pending',
-      createdAt: DateTime.now().subtract(Duration(days: 1)),
-      updatedAt: DateTime.now().subtract(Duration(days: 1)),
-      images: [],
-    ),
-    HostelComplaint(
-      id: '3',
-      studentId: 'student789',
-      studentName: 'Raj Patel',
-      studentEmail: 'raj@student.sece.ac.in',
-      category: 'Cleaning',
-      issue: 'Common area not cleaned',
-      description:
-          'The common area on ground floor has not been cleaned for the past 3 days.',
-      location: 'Common Area',
-      priority: 'Low',
-      status: 'resolved',
-      createdAt: DateTime.now().subtract(Duration(days: 5)),
-      updatedAt: DateTime.now().subtract(Duration(days: 2)),
-      resolvedAt: DateTime.now().subtract(Duration(days: 2)),
-      adminComment:
-          'The issue has been resolved. The cleaning schedule has been updated.',
-      images: [
-        'https://example.com/image2.jpg',
-        'https://example.com/image3.jpg',
-      ],
-    ),
-    HostelComplaint(
-      id: '4',
-      studentId: 'student101',
-      studentName: 'Meera Reddy',
-      studentEmail: 'meera@student.sece.ac.in',
-      category: 'Plumbing',
-      issue: 'Leaking tap',
-      description:
-          'The tap in my bathroom is leaking continuously, causing water wastage.',
-      location: 'A Block - Second Floor',
-      priority: 'Medium',
-      status: 'in-progress',
-      createdAt: DateTime.now().subtract(Duration(days: 3)),
-      updatedAt: DateTime.now().subtract(Duration(hours: 10)),
-      adminComment: 'Plumber scheduled for tomorrow morning.',
-      images: ['https://example.com/image4.jpg'],
-    ),
-    HostelComplaint(
-      id: '5',
-      studentId: 'student202',
-      studentName: 'Karthik Nair',
-      studentEmail: 'karthik@student.sece.ac.in',
-      category: 'Furniture',
-      issue: 'Broken chair',
-      description:
-          'One of the chair legs in my room is broken and unsafe to use.',
-      location: 'B Block - First Floor',
-      priority: 'Low',
-      status: 'resolved',
-      createdAt: DateTime.now().subtract(Duration(days: 10)),
-      updatedAt: DateTime.now().subtract(Duration(days: 7)),
-      resolvedAt: DateTime.now().subtract(Duration(days: 7)),
-      adminComment: 'Chair has been replaced with a new one.',
-      images: [],
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
 
-    // Load mock data
-    _complaints = List.from(_mockComplaints);
+    // Initialize complaint streams
+    _pendingComplaintsStream = _complaintService.getComplaintsByStatus(
+      'pending',
+    );
+    _inProgressComplaintsStream = _complaintService.getComplaintsByStatus(
+      'in-progress',
+    );
+    _resolvedComplaintsStream = _complaintService.getComplaintsByStatus(
+      'resolved',
+    );
+  }
+
+  // Helper method to show error snackbar
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 5),
+      ),
+    );
   }
 
   @override
@@ -173,21 +92,50 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
   }
 
   // Add a new complaint
-  void _addComplaint(HostelComplaint complaint) {
-    setState(() {
-      _complaints.add(complaint);
-    });
+  Future<void> _addComplaint(HostelComplaint complaint) async {
+    try {
+      // Set loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Submitting complaint...'),
+            ],
+          ),
+          duration: Duration(seconds: 1),
+        ),
+      );
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Complaint submitted successfully'),
-        backgroundColor: Color(0xFF5CACEE),
-      ),
-    );
-  }
+      // Submit complaint
+      DocumentReference docRef = await _complaintService.addComplaint(
+        complaint,
+      );
+      print("Successfully added complaint with ID: ${docRef.id}");
 
-  // Show form to add a new complaint
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Complaint submitted successfully'),
+          backgroundColor: Color(0xFF5CACEE),
+        ),
+      );
+    } catch (e) {
+      print("Error submitting complaint: $e");
+
+      // Show error message
+      _showErrorSnackBar('Failed to submit complaint: ${e.toString()}');
+    }
+  } // Show form to add a new complaint
+
   void _showComplaintForm() {
     final student = Provider.of<StudentProvider>(
       context,
@@ -379,7 +327,7 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
 
                     // Create new complaint
                     final complaint = HostelComplaint(
-                      id: _uuid.v4(),
+                      id: '', // Firestore will generate the ID
                       studentId: student.uid,
                       studentName: student.name,
                       studentEmail: student.email,
@@ -394,6 +342,7 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
                       images: selectedImages,
                     );
 
+                    // Add the complaint asynchronously
                     _addComplaint(complaint);
                     Navigator.of(context).pop();
                   },
@@ -756,18 +705,10 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
               unselectedLabelColor: Colors.grey,
               indicatorColor: Color(0xFF5CACEE),
               tabs: [
-                Tab(
-                  icon: Icon(Icons.hourglass_empty),
-                  text: 'Pending (${_pendingComplaints.length})',
-                ),
-                Tab(
-                  icon: Icon(Icons.sync),
-                  text: 'In Progress (${_inProgressComplaints.length})',
-                ),
-                Tab(
-                  icon: Icon(Icons.check_circle_outline),
-                  text: 'Resolved (${_resolvedComplaints.length})',
-                ),
+                // Simplify to avoid StreamBuilder in tabs which can cause issues
+                Tab(icon: Icon(Icons.hourglass_empty), text: 'Pending'),
+                Tab(icon: Icon(Icons.sync), text: 'In Progress'),
+                Tab(icon: Icon(Icons.check_circle_outline), text: 'Resolved'),
               ],
             ),
           ),
@@ -778,13 +719,171 @@ class _HostelComplaintScreenState extends State<HostelComplaintScreen>
               controller: _tabController,
               children: [
                 // Pending complaints
-                _buildComplaintList(_pendingComplaints),
+                StreamBuilder<List<HostelComplaint>>(
+                  stream: _pendingComplaintsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Error Loading Complaints',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                              ),
+                              child: Text(
+                                'Could not load pending complaints: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _pendingComplaintsStream = _complaintService
+                                      .getComplaintsByStatus('pending');
+                                });
+                              },
+                              child: Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(child: Text('No pending complaints'));
+                    } else {
+                      return _buildComplaintList(snapshot.data!);
+                    }
+                  },
+                ),
 
                 // In progress complaints
-                _buildComplaintList(_inProgressComplaints),
+                StreamBuilder<List<HostelComplaint>>(
+                  stream: _inProgressComplaintsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Error Loading Complaints',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                              ),
+                              child: Text(
+                                'Could not load in-progress complaints: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _inProgressComplaintsStream =
+                                      _complaintService.getComplaintsByStatus(
+                                        'in-progress',
+                                      );
+                                });
+                              },
+                              child: Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(child: Text('No in-progress complaints'));
+                    } else {
+                      return _buildComplaintList(snapshot.data!);
+                    }
+                  },
+                ),
 
                 // Resolved complaints
-                _buildComplaintList(_resolvedComplaints),
+                StreamBuilder<List<HostelComplaint>>(
+                  stream: _resolvedComplaintsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Error Loading Complaints',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                              ),
+                              child: Text(
+                                'Could not load resolved complaints: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _resolvedComplaintsStream = _complaintService
+                                      .getComplaintsByStatus('resolved');
+                                });
+                              },
+                              child: Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(child: Text('No resolved complaints'));
+                    } else {
+                      return _buildComplaintList(snapshot.data!);
+                    }
+                  },
+                ),
               ],
             ),
           ),

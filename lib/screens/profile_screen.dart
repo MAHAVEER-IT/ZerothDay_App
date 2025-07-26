@@ -147,7 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ),
-
                   // Editable profile info
                   Card(
                     elevation: 4,

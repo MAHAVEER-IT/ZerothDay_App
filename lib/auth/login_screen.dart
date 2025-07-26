@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ), // Sky blue
               SizedBox(height: 24.0),
               Text(
-                'Sri Eshwar College Student Login',
+                'Eshwar Nanban',
                 style: TextStyle(
                   fontSize: 24.0,
                   fontWeight: FontWeight.bold,
